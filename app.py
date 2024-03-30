@@ -2,8 +2,6 @@ from flask import Flask, render_template, request
 import cv2
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
 app = Flask(__name__)
 
@@ -18,21 +16,45 @@ skin_types = {
     3: "Combination"
 }
 
-@app.route('/', methods=['GET'])
-def hello_world():
-    return render_template('index.html', prediction=None)
+# Define image paths or URLs for each recommendation
+recommendations = {
+    "Oily": "/static/oily.jpg",
+    "Combination": "/static/combination.jpg",
+    "Normal": "/static/normal.jpg",
+    "Dry": "/static/dry.jpg",
+}
 
-@app.route('/', methods=['POST'])
+# Function to recommend face wash based on skin type
+def recommend_face_wash(skin_type):
+    if skin_type == "Oily":
+        return "You better use Himalaya Purifying Neem Face Wash or Himalaya Moisturizing Aloe Vera Face Wash", recommendations["Oily"]
+    elif skin_type == "Combination":
+        return "Himalaya Moisturizing Aloe Vera Face Wash", recommendations["Combination"]
+    elif skin_type == "Normal":
+        return "Himalaya Natural Glow Kesar Face Wash", recommendations["Normal"]
+    elif skin_type == "Dry":
+        return "Himalaya Deep Cleanse Balancing Face Wash (Neem and Turmeric) or Himalaya Gentle Hydrating Face Wash", recommendations["Dry"]
+    else:
+        return "Unknown skin type", None
+
+@app.route('/', methods=['GET', 'POST'])
 def predict():
-    # Receive the image file from the user
-    imagefile = request.files['imagefile']
-    image_path = "./images/" + imagefile.filename
-    imagefile.save(image_path)
+    if request.method == 'GET':
+        return render_template('index.html', prediction=None, image=None, recommendation=None, recommendation_image=None)
+    elif request.method == 'POST':
+        # Receive the image file from the user
+        imagefile = request.files['imagefile']
+        image_path = "./images/" + imagefile.filename
+        imagefile.save(image_path)
 
-    # Perform prediction
-    oilyness_level, skin_type = detect_oilyness(image_path)
+        # Perform prediction
+        oilyness_level, skin_type = detect_oilyness(image_path)
 
-    return render_template('index.html', prediction=f'Oilyness Level: {oilyness_level}, Skin Type: {skin_type}')
+        # Recommend face wash based on skin type
+        face_wash_recommendation, recommendation_image = recommend_face_wash(skin_type)
+
+        return render_template('index.html', prediction=f'Oilyness Level: {oilyness_level}, Skin Type: {skin_type}',
+                               image=imagefile.filename, recommendation=face_wash_recommendation, recommendation_image=recommendation_image)
 
 def detect_oilyness(image_path):
     img = cv2.imread(image_path)
